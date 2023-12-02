@@ -7,6 +7,8 @@ import org.kettingpowered.ketting.utils.ServerInitHelper;
 import org.kettingpowered.ketting.utils.Unsafe;
 
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLStreamHandlerFactory;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.spi.FileSystemProvider;
@@ -84,6 +86,14 @@ public class KettingLauncher {
         fsHacks();
         clearReservedIdentifiers();
 
+        setStreamFactory();
+        try {
+            new URL("http://127.0.0.1");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        removeStreamFactory();
+
         List<String> launchArgs = JarTool.readFileLinesFromJar("data/" + (System.getProperty("os.name").toLowerCase().contains("win") ? "win" : "unix") + "_args.txt");
         ServerInitHelper.init(launchArgs);
 
@@ -117,6 +127,23 @@ public class KettingLauncher {
             installedProvidersField.set(null, null);
         } catch (Exception e) {
             throw new RuntimeException("Could not set filesystem", e);
+        }
+    }
+
+    public static void setStreamFactory() {
+        try {
+            var factory = Unsafe.lookup().findStaticGetter(URL.class, "defaultFactory", URLStreamHandlerFactory.class).invoke();
+            Unsafe.lookup().findStaticSetter(URL.class, "factory", URLStreamHandlerFactory.class).invoke(factory);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void removeStreamFactory() {
+        try {
+            Unsafe.lookup().findStaticSetter(URL.class, "factory", URLStreamHandlerFactory.class).invoke((Object) null);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
         }
     }
 
